@@ -62,7 +62,7 @@ const (
 
 // Consumergroups returns all the registered consumergroups
 func (kz *Kazoo) Consumergroups() (ConsumergroupList, error) {
-	root := fmt.Sprintf("%s/consumers", kz.conf.Chroot)
+	root := fmt.Sprintf("%s/mobius", kz.conf.Chroot)
 	cgs, _, err := kz.conn.Children(root)
 	if err != nil {
 		return nil, err
@@ -82,12 +82,12 @@ func (kz *Kazoo) Consumergroup(name string) *Consumergroup {
 
 // Exists checks whether the consumergroup has been registered in Zookeeper
 func (cg *Consumergroup) Exists() (bool, error) {
-	return cg.kz.exists(fmt.Sprintf("%s/consumers/%s", cg.kz.conf.Chroot, cg.Name))
+	return cg.kz.exists(fmt.Sprintf("%s/mobius/%s", cg.kz.conf.Chroot, cg.Name))
 }
 
 // Create registers the consumergroup in zookeeper
 func (cg *Consumergroup) Create() error {
-	return cg.kz.mkdirRecursive(fmt.Sprintf("%s/consumers/%s", cg.kz.conf.Chroot, cg.Name))
+	return cg.kz.mkdirRecursive(fmt.Sprintf("%s/mobius/%s", cg.kz.conf.Chroot, cg.Name))
 }
 
 // Delete removes the consumergroup from zookeeper
@@ -98,12 +98,12 @@ func (cg *Consumergroup) Delete() error {
 		return ErrRunningInstances
 	}
 
-	return cg.kz.deleteRecursive(fmt.Sprintf("%s/consumers/%s", cg.kz.conf.Chroot, cg.Name))
+	return cg.kz.deleteRecursive(fmt.Sprintf("%s/mobius/%s", cg.kz.conf.Chroot, cg.Name))
 }
 
 // Instances returns a map of all running instances inside this consumergroup.
 func (cg *Consumergroup) Instances() (ConsumergroupInstanceList, error) {
-	root := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
+	root := fmt.Sprintf("%s/mobius/%s/ids", cg.kz.conf.Chroot, cg.Name)
 	if exists, err := cg.kz.exists(root); err != nil {
 		return nil, err
 	} else if exists {
@@ -126,7 +126,7 @@ func (cg *Consumergroup) Instances() (ConsumergroupInstanceList, error) {
 // WatchInstances returns a ConsumergroupInstanceList, and a channel that will be closed
 // as soon the instance list changes.
 func (cg *Consumergroup) WatchInstances() (ConsumergroupInstanceList, <-chan zk.Event, error) {
-	node := fmt.Sprintf("%s/consumers/%s/ids", cg.kz.conf.Chroot, cg.Name)
+	node := fmt.Sprintf("%s/mobius/%s/ids", cg.kz.conf.Chroot, cg.Name)
 	if exists, err := cg.kz.exists(node); err != nil {
 		return nil, nil, err
 	} else if !exists {
@@ -167,7 +167,7 @@ func (cg *Consumergroup) Instance(id string) *ConsumergroupInstance {
 // PartitionOwner returns the ConsumergroupInstance that has claimed the given partition.
 // This can be nil if nobody has claimed it yet.
 func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*ConsumergroupInstance, error) {
-	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
+	node := fmt.Sprintf("%s/mobius/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	val, _, err := cg.kz.conn.Get(node)
 
 	// If the node does not exists, nobody has claimed it.
@@ -186,7 +186,7 @@ func (cg *Consumergroup) PartitionOwner(topic string, partition int32) (*Consume
 // the function returns nil for every return value. In this case is should be safe to claim
 // the partition for an instance.
 func (cg *Consumergroup) WatchPartitionOwner(topic string, partition int32) (*ConsumergroupInstance, <-chan zk.Event, error) {
-	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
+	node := fmt.Sprintf("%s/mobius/%s/owners/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	instanceID, _, changed, err := cg.kz.conn.GetW(node)
 
 	switch err {
@@ -203,13 +203,13 @@ func (cg *Consumergroup) WatchPartitionOwner(topic string, partition int32) (*Co
 
 // Registered checks whether the consumergroup instance is registered in Zookeeper.
 func (cgi *ConsumergroupInstance) Registered() (bool, error) {
-	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	node := fmt.Sprintf("%s/mobius/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
 	return cgi.cg.kz.exists(node)
 }
 
 // Registered returns current registration of the consumer group instance.
 func (cgi *ConsumergroupInstance) Registration() (*Registration, error) {
-	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	node := fmt.Sprintf("%s/mobius/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
 	val, _, err := cgi.cg.kz.conn.Get(node)
 	if err != nil {
 		return nil, err
@@ -231,7 +231,7 @@ func (cgi *ConsumergroupInstance) RegisterWithSubscription(subscriptionJSON []by
 	}
 
 	// Create an ephemeral node for the the consumergroup instance.
-	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	node := fmt.Sprintf("%s/mobius/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
 	return cgi.cg.kz.create(node, subscriptionJSON, true)
 }
 
@@ -257,7 +257,7 @@ func (cgi *ConsumergroupInstance) Register(topics []string) error {
 
 // Deregister removes the registration of the instance from zookeeper.
 func (cgi *ConsumergroupInstance) Deregister() error {
-	node := fmt.Sprintf("%s/consumers/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
+	node := fmt.Sprintf("%s/mobius/%s/ids/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, cgi.ID)
 	exists, stat, err := cgi.cg.kz.conn.Exists(node)
 	if err != nil {
 		return err
@@ -271,7 +271,7 @@ func (cgi *ConsumergroupInstance) Deregister() error {
 // Claim claims a topic/partition ownership for a consumer ID within a group. If the
 // partition is already claimed by another running instance, it will return ErrAlreadyClaimed.
 func (cgi *ConsumergroupInstance) ClaimPartition(topic string, partition int32) error {
-	root := fmt.Sprintf("%s/consumers/%s/owners/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic)
+	root := fmt.Sprintf("%s/mobius/%s/owners/%s", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic)
 	if err := cgi.cg.kz.mkdirRecursive(root); err != nil {
 		return err
 	}
@@ -305,13 +305,13 @@ func (cgi *ConsumergroupInstance) ReleasePartition(topic string, partition int32
 		return ErrPartitionNotClaimed
 	}
 
-	node := fmt.Sprintf("%s/consumers/%s/owners/%s/%d", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic, partition)
+	node := fmt.Sprintf("%s/mobius/%s/owners/%s/%d", cgi.cg.kz.conf.Chroot, cgi.cg.Name, topic, partition)
 	return cgi.cg.kz.conn.Delete(node, 0)
 }
 
 // Topics retrieves the list of topics the consumergroup has claimed ownership of at some point.
 func (cg *Consumergroup) Topics() (TopicList, error) {
-	root := fmt.Sprintf("%s/consumers/%s/owners", cg.kz.conf.Chroot, cg.Name)
+	root := fmt.Sprintf("%s/mobius/%s/owners", cg.kz.conf.Chroot, cg.Name)
 	children, _, err := cg.kz.conn.Children(root)
 	if err != nil {
 		return nil, err
@@ -326,7 +326,7 @@ func (cg *Consumergroup) Topics() (TopicList, error) {
 
 // CommitOffset commits an offset to a group/topic/partition
 func (cg *Consumergroup) CommitOffset(topic string, partition int32, offset int64) error {
-	node := fmt.Sprintf("%s/consumers/%s/offsets/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
+	node := fmt.Sprintf("%s/mobius/%s/offsets/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	data := []byte(fmt.Sprintf("%d", offset))
 
 	_, stat, err := cg.kz.conn.Get(node)
@@ -345,7 +345,7 @@ func (cg *Consumergroup) CommitOffset(topic string, partition int32, offset int6
 
 // FetchOffset retrieves an offset to a group/topic/partition
 func (cg *Consumergroup) FetchOffset(topic string, partition int32) (int64, error) {
-	node := fmt.Sprintf("%s/consumers/%s/offsets/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
+	node := fmt.Sprintf("%s/mobius/%s/offsets/%s/%d", cg.kz.conf.Chroot, cg.Name, topic, partition)
 	val, _, err := cg.kz.conn.Get(node)
 	if err == zk.ErrNoNode {
 		return -1, nil
@@ -359,7 +359,7 @@ func (cg *Consumergroup) FetchOffset(topic string, partition int32) (int64, erro
 func (cg *Consumergroup) FetchAllOffsets() (map[string]map[int32]int64, error) {
 	result := make(map[string]map[int32]int64)
 
-	offsetsNode := fmt.Sprintf("%s/consumers/%s/offsets", cg.kz.conf.Chroot, cg.Name)
+	offsetsNode := fmt.Sprintf("%s/mobius/%s/offsets", cg.kz.conf.Chroot, cg.Name)
 	topics, _, err := cg.kz.conn.Children(offsetsNode)
 	if err == zk.ErrNoNode {
 		return result, nil
@@ -369,14 +369,14 @@ func (cg *Consumergroup) FetchAllOffsets() (map[string]map[int32]int64, error) {
 
 	for _, topic := range topics {
 		result[topic] = make(map[int32]int64)
-		topicNode := fmt.Sprintf("%s/consumers/%s/offsets/%s", cg.kz.conf.Chroot, cg.Name, topic)
+		topicNode := fmt.Sprintf("%s/mobius/%s/offsets/%s", cg.kz.conf.Chroot, cg.Name, topic)
 		partitions, _, err := cg.kz.conn.Children(topicNode)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, partition := range partitions {
-			partitionNode := fmt.Sprintf("%s/consumers/%s/offsets/%s/%s", cg.kz.conf.Chroot, cg.Name, topic, partition)
+			partitionNode := fmt.Sprintf("%s/mobius/%s/offsets/%s/%s", cg.kz.conf.Chroot, cg.Name, topic, partition)
 			val, _, err := cg.kz.conn.Get(partitionNode)
 			if err != nil {
 				return nil, err
@@ -400,7 +400,7 @@ func (cg *Consumergroup) FetchAllOffsets() (map[string]map[int32]int64, error) {
 }
 
 func (cg *Consumergroup) ResetOffsets() error {
-	offsetsNode := fmt.Sprintf("%s/consumers/%s/offsets", cg.kz.conf.Chroot, cg.Name)
+	offsetsNode := fmt.Sprintf("%s/mobius/%s/offsets", cg.kz.conf.Chroot, cg.Name)
 	topics, _, err := cg.kz.conn.Children(offsetsNode)
 	if err == zk.ErrNoNode {
 		return nil
@@ -409,14 +409,14 @@ func (cg *Consumergroup) ResetOffsets() error {
 	}
 
 	for _, topic := range topics {
-		topicNode := fmt.Sprintf("%s/consumers/%s/offsets/%s", cg.kz.conf.Chroot, cg.Name, topic)
+		topicNode := fmt.Sprintf("%s/mobius/%s/offsets/%s", cg.kz.conf.Chroot, cg.Name, topic)
 		partitions, stat, err := cg.kz.conn.Children(topicNode)
 		if err != nil {
 			return err
 		}
 
 		for _, partition := range partitions {
-			partitionNode := fmt.Sprintf("%s/consumers/%s/offsets/%s/%s", cg.kz.conf.Chroot, cg.Name, topic, partition)
+			partitionNode := fmt.Sprintf("%s/mobius/%s/offsets/%s/%s", cg.kz.conf.Chroot, cg.Name, topic, partition)
 			exists, stat, err := cg.kz.conn.Exists(partitionNode)
 			if exists {
 				if err = cg.kz.conn.Delete(partitionNode, stat.Version); err != nil {
